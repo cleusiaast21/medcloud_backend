@@ -5,6 +5,7 @@ const authRoutes = require('./routes/auth');
 const pacienteRoutes = require('./routes/pacienteRoutes');
 const consultaRoutes = require('./routes/consultaRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const waitingListRoutes = require('./routes/waitingListRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +50,7 @@ app.use('/api/auth', (req, res, next) => authRoutes(req, res, next));
 app.use('/api/pacientes', (req, res, next) => pacienteRoutes(req, res, next));
 app.use('/api/consultas', (req, res, next) => consultaRoutes(req, res, next));
 app.use('/api/employees', (req, res, next) => employeeRoutes(req, res, next));
+app.use('/api/waitingList', (req, res, next) => waitingListRoutes(req, res, next));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
