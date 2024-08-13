@@ -29,4 +29,26 @@ router.get('/patients', async (req, res) => {
   }
 });
 
+router.post('/retrieve', async (req, res) => {
+  try {
+      const { ids } = req.body;
+      
+      if (!Array.isArray(ids) || ids.some(id => !mongoose.Types.ObjectId.isValid(id))) {
+          return res.status(400).json({ message: 'Invalid ID format' });
+      }
+
+      const pacientes = await Paciente.find({ _id: { $in: ids } });
+      
+      if (!pacientes.length) {
+          return res.status(404).json({ message: 'No pacientes found' });
+      }
+
+      res.json(pacientes);
+  } catch (error) {
+      console.error('Error retrieving pacientes:', error.message);
+      res.status(500).json({ message: 'Error retrieving pacientes', error: error.message });
+  }
+});
+
+
 module.exports = router;
