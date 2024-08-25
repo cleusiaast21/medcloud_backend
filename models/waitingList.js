@@ -2,13 +2,11 @@ const mongoose = require('mongoose');
 
 const waitingListSchema = new mongoose.Schema({
     pacienteId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Paciente',
+        type: String,
         required: true
     },
     medicoId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Medico',
+        type: String,
         required: true
     },
     dateAdded: {

@@ -2,36 +2,36 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const Employee = require('../models/Employee');
 
 // Rota de registro
 router.post('/register', async (req, res) => {
-  const { id, password } = req.body;
+  const { funcionarioId, password } = req.body;
   try {
-    const userCollection = req.localDb.model('User', User.schema); // Use localDb connection
+    const employeeCollection = req.localDb.model('Employee', Employee.schema); // Use localDb connection
 
-    // Verifique se o usuário já existe
-    let user = await userCollection.findOne({ id });
-    if (user) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Verifique se o funcionário já existe
+    let employee = await employeeCollection.findOne({ funcionarioId });
+    if (employee) {
+      return res.status(400).json({ message: 'Employee already exists' });
     }
 
-    // Crie um novo usuário
-    user = new userCollection({
-      id,
+    // Crie um novo funcionário
+    employee = new employeeCollection({
+      funcionarioId,
       password
     });
 
     // Hash da senha
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    employee.password = await bcrypt.hash(password, salt);
 
-    await user.save();
+    await employee.save();
 
     // Retornar um token
     const payload = {
-      user: {
-        id: user.id
+      employee: {
+        funcionarioId: employee.funcionarioId
       }
     };
 
@@ -47,38 +47,46 @@ router.post('/register', async (req, res) => {
 
 // Rota de login
 router.post('/login', async (req, res) => {
-  const { id, password } = req.body;
+  const { funcionarioId, password } = req.body;
+
+  if (!funcionarioId || !password) {
+    return res.status(400).json({ message: 'Please provide funcionarioId and password' });
+  }
 
   try {
-    const userCollection = req.localDb.model('User', User.schema); // Use localDb connection
+    const employeeCollection = req.localDb.model('Employee', Employee.schema);
+    let employee = await employeeCollection.findOne({ funcionarioId });
 
-    // Verifique se o usuário existe
-    let user = await userCollection.findOne({ id });
-    if (!user) {
-      return res.status(400).json({ message: 'User not found' });
+    if (!employee) {
+      return res.status(400).json({ message: 'Employee not found' });
     }
 
-    // Verifique a senha
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Retornar um token
     const payload = {
-      user: {
-        id: user.id
+      employee: {
+        funcionarioId: employee.funcionarioId,
+        employeeType: employee.employeeType, // Ensure this is included
+        nomeCompleto: employee.nomeCompleto // Include nomeCompleto
       }
     };
 
     jwt.sign(payload, 'secret', { expiresIn: 3600 }, (err, token) => {
       if (err) throw err;
-      res.status(200).json({ token });
+      res.status(200).json({ token, employee: payload.employee }); // Include employee data in response
     });
   } catch (err) {
-    console.error(err.message);
+    console.error('Server error:', err.message);
     res.status(500).send('Server error');
   }
 });
+
+
+
+
+
 
 module.exports = router;

@@ -2,6 +2,28 @@ const express = require('express');
 const router = express.Router();
 const PacienteSchema = require('../models/Paciente').schema; // Import the schema only
 
+
+router.get('/getPaciente/:pacienteId', async (req, res) => {
+  const { pacienteId } = req.params;
+
+  try {
+      const Paciente = req.localDb.model('Paciente', PacienteSchema);
+
+      // Query using numeroIdentificacao instead of _id
+      const paciente = await Paciente.findOne({ numeroIdentificacao: pacienteId });
+      
+      if (!paciente) {
+          return res.status(404).send('Patient not found');
+      }
+      
+      res.json(paciente);
+  } catch (error) {
+      console.error('Error in /getPaciente route:', error);
+      res.status(500).send('Server error');
+  }
+});
+
+
 router.post('/', async (req, res) => {
   try {
     // Use the localDb connection from req to create the Paciente model
