@@ -50,14 +50,14 @@ router.get('/findConsulta', async (req, res) => {
 // PUT: Update an existing Consulta document
 router.put('/update', async (req, res) => {
   try {
-    const { consultaId } = req.body;  // Get consultaId from the request body
+    const { consultaId, pacienteId } = req.body;  // Get consultaId and pacienteId from the request body
     const { vitals, comments, consultaData, selectedExams, acceptedDiseases } = req.body.data; // Get data object
 
     // Determine the state based on whether `selectedExams` is present
     let state = (selectedExams && selectedExams.length > 0) ? 'pending' : 'closed';
 
     console.log('Consulta ID:', consultaId);
-    console.log('Data:', req.body.data);
+    console.log('Paciente ID:', pacienteId);
 
     // Use the localDb connection to get the Consulta model
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
@@ -77,17 +77,31 @@ router.put('/update', async (req, res) => {
       }
     );
 
-    // Respond to the client
+    // If the consulta was successfully updated
     if (result.modifiedCount > 0) {
-      res.status(200).json({ message: 'Consulta document updated successfully.' });
+      // Use the localDb connection to get the WaitingList model
+      const WaitingList = req.localDb.model('WaitingList', WaitingListSchema);
+
+      // Remove the entry from the waitinglists collection based on pacienteId
+      const deleteResult = await WaitingList.deleteOne({ pacienteId: pacienteId });
+
+      if (deleteResult.deletedCount > 0) {
+        console.log(`Entry with pacienteId ${pacienteId} removed from waiting list.`);
+      } else {
+        console.log(`No entry found in waiting list for pacienteId ${pacienteId}.`);
+      }
+
+      // Respond to the client
+      res.status(200).json({ message: 'Consulta updated and paciente removed from waiting list successfully.' });
     } else {
       res.status(404).json({ message: 'Consulta document not found.' });
     }
   } catch (error) {
-    console.error('Error updating consulta document:', error);
+    console.error('Error updating consulta document or removing from waiting list:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
+
 
 
 
