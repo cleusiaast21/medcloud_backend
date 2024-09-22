@@ -70,7 +70,7 @@ router.post('/login', async (req, res) => {
       employee: {
         funcionarioId: employee.funcionarioId,
         employeeType: employee.employeeType, // Ensure this is included
-        nomeCompleto: employee.nomeCompleto // Include nomeCompleto
+        nomeCompleto: employee.nomeCompleto, // Include nomeCompleto
       }
     };
 
