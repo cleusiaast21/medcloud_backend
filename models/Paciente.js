@@ -22,7 +22,8 @@ const pacienteSchema = new mongoose.Schema({
     required: true
   },
   telefoneAlternativo: String,
-  email: String
+  email: String,
+  password: { type: String, required: true }
 });
 
 const Paciente = mongoose.model('Paciente', pacienteSchema);

@@ -18,6 +18,20 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get('/pending', async (req, res) => {
+  try {
+
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+    // Find consultations where state is 'pending'
+    const pendingConsultations = await Consulta.find({ state: 'pending' });
+    res.json(pendingConsultations);
+} catch (error) {
+    console.error('Error fetching pending consultations:', error);
+    res.status(500).json({ error: 'Failed to fetch consultations' });
+}
+});
+
 // GET: Find consulta by pacienteID and medico
 // In your consultas route file (e.g., consultas.js)
 router.get('/findConsulta', async (req, res) => {
@@ -54,10 +68,7 @@ router.put('/update', async (req, res) => {
     const { vitals, comments, consultaData, selectedExams, acceptedDiseases } = req.body.data; // Get data object
 
     // Determine the state based on whether `selectedExams` is present
-    let state = (selectedExams && selectedExams.length > 0) ? 'pending' : 'closed';
-
-    console.log('Consulta ID:', consultaId);
-    console.log('Paciente ID:', pacienteId);
+    let state = (selectedExams.length > 0) ? 'pending' : 'closed';
 
     // Use the localDb connection to get the Consulta model
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
