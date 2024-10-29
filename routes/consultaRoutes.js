@@ -1,117 +1,230 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const ConsultaSchema = require('../models/Consulta').schema; // Import the schema only
-const WaitingListSchema = require('../models/WaitingList').schema; // Import the schema only
+const dns = require('dns');
+const ConsultaSchema = require('../models/Consulta').schema; // Import schema only
+const WaitingListSchema = require('../models/WaitingList').schema; // Import schema only
 
-router.post('/', async (req, res) => {
-  try {
-    // Use the localDb connection from req to create the Consulta model
-    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+// In-memory storage for unsynced consultations
+const unsyncedConsultas = [];
 
-    const consulta = new Consulta(req.body);
-    await consulta.save();
-    res.status(201).json(consulta);
-  } catch (error) {
-    console.error('Erro ao registrar consulta:', error);
-    res.status(500).send('Erro ao registrar consulta');
-  }
+
+// Store database connections globally
+let atlasDb, localDb;
+
+
+// Route to initialize database connections
+router.use((req, res, next) => {
+  atlasDb = req.atlasDb;
+  localDb = req.localDb;
+  next();
 });
 
-router.get('/pending', async (req, res) => {
-  try {
 
-    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
-
-    // Find consultations where state is 'pending'
-    const pendingConsultations = await Consulta.find({ state: 'pending' });
-    res.json(pendingConsultations);
-} catch (error) {
-    console.error('Error fetching pending consultations:', error);
-    res.status(500).json({ error: 'Failed to fetch consultations' });
+// Utility function to check internet connection via DNS lookup
+function isConnectedToInternet() {
+  return new Promise((resolve) => {
+    console.log('Checking internet connection...');
+    dns.lookup('google.com', (err) => {
+      if (err) {
+        console.error('No internet connection:', err);
+        resolve(false);
+      } else {
+        console.log('Internet connection available');
+        resolve(true);
+      }
+    });
+  });
 }
-});
 
-// GET: Find consulta by pacienteID and medico
-// In your consultas route file (e.g., consultas.js)
-router.get('/findConsulta', async (req, res) => {
+
+// Sync unsynced consultations when internet is available
+async function syncUnsyncedConsultas() {
+  if (!(await isConnectedToInternet())) return;
+
   try {
-      const { pacienteID, medico } = req.query;
+    const ConsultaAtlas = atlasDb.model('Consulta', ConsultaSchema);
 
-      // Check if both query params are passed
-      if (!pacienteID || !medico) {
-          return res.status(400).json({ message: 'pacienteID and medico are required' });
-      }
-
-      // Use the localDb connection to access the Consulta model
-      const Consulta = req.localDb.model('Consulta', ConsultaSchema);
-
-      // Find the consultation based on pacienteID and medico
-      const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico: medico });
-
-      if (consulta) {
-          res.status(200).json({ consultaId: consulta._id });
-      } else {
-          res.status(404).json({ message: 'Consulta not found.' });
-      }
-  } catch (error) {
-      console.error('Error finding consulta:', error);
-      res.status(500).json({ message: 'Internal server error.' });
-  }
-});
-
-
-// PUT: Update an existing Consulta document
-router.put('/update', async (req, res) => {
-  try {
-    const { consultaId, pacienteId } = req.body;  // Get consultaId and pacienteId from the request body
-    const { vitals, comments, consultaData, selectedExams, acceptedDiseases } = req.body.data; // Get data object
-
-    // Determine the state based on whether `selectedExams` is present
-    let state = (selectedExams.length > 0) ? 'pending' : 'closed';
-
-    // Use the localDb connection to get the Consulta model
-    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
-
-    // Update the found consulta document
-    const result = await Consulta.updateOne(
-      { _id: consultaId }, // Find the document by ID
-      {
-        $set: {
-          vitals,
-          comments,
-          consultaData,
-          selectedExams,
-          acceptedDiseases,
-          state: state  // Update the state based on selectedExams
-        },
-      }
-    );
-
-    // If the consulta was successfully updated
-    if (result.modifiedCount > 0) {
-      // Use the localDb connection to get the WaitingList model
-      const WaitingList = req.localDb.model('WaitingList', WaitingListSchema);
-
-      // Remove the entry from the waitinglists collection based on pacienteId
-      const deleteResult = await WaitingList.deleteOne({ pacienteId: pacienteId });
-
-      if (deleteResult.deletedCount > 0) {
-        console.log(`Entry with pacienteId ${pacienteId} removed from waiting list.`);
-      } else {
-        console.log(`No entry found in waiting list for pacienteId ${pacienteId}.`);
-      }
-
-      // Respond to the client
-      res.status(200).json({ message: 'Consulta updated and paciente removed from waiting list successfully.' });
-    } else {
-      res.status(404).json({ message: 'Consulta document not found.' });
+    while (unsyncedConsultas.length > 0) {
+      const consultaData = unsyncedConsultas.shift();
+      await new ConsultaAtlas(consultaData).save();
+      console.log('Consulta synced to Atlas:', consultaData);
     }
   } catch (error) {
-    console.error('Error updating consulta document or removing from waiting list:', error);
+    console.error('Error syncing consultas:', error);
+  }
+}
+
+
+// Periodically check for internet connection to sync unsynced consultations
+setInterval(syncUnsyncedConsultas, 600000); // 10-minute interval
+
+
+// POST: Save a new Consulta
+router.post('/', async (req, res) => {
+  try {
+    const online = await isConnectedToInternet();
+    const consultaData = req.body;
+
+    if (online) {
+      console.log('Internet connection available');
+
+      const ConsultaAtlas = req.atlasDb.model('Consulta', ConsultaSchema);
+      const consulta = new ConsultaAtlas(consultaData);
+
+      await consulta.save(); // Save to Atlas
+      await req.localDb.model('Consulta', ConsultaSchema).create(consultaData); // Save locally
+
+      return res.status(201).json(consulta);
+    } else {
+      console.log('No internet connection');
+
+      const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+      const consulta = new Consulta(consultaData);
+
+      await consulta.save(); // Save locally
+      unsyncedConsultas.push(consultaData); // Store for later sync
+
+      return res.status(201).json(consulta);
+    }
+  } catch (error) {
+    console.error('Error saving consulta:', error);
+    res.status(500).send('Error saving consulta');
+  }
+});
+
+
+// GET: Pending consultations
+router.get('/pending', async (req, res) => {
+  try {
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const pendingConsultations = await Consulta.find({ state: 'pending' });
+    res.json(pendingConsultations);
+  } catch (error) {
+    console.error('Error fetching pending consultations:', error);
+    res.status(500).json({ error: 'Failed to fetch consultations' });
+  }
+});
+
+
+// GET: Find consulta by pacienteID and medico
+router.get('/findConsulta', async (req, res) => {
+  try {
+    const { pacienteID, medico } = req.query;
+
+    if (!pacienteID || !medico) {
+      return res.status(400).json({ message: 'pacienteID and medico are required' });
+    }
+
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico });
+
+    if (consulta) {
+      res.status(200).json({ consultaId: consulta._id });
+      console.log("Local ID: ", consulta._id)
+    } else {
+      res.status(404).json({ message: 'Consulta not found.' });
+    }
+  } catch (error) {
+    console.error('Error finding consulta:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
+
+
+// GET: Find consulta by pacienteID and medico
+router.get('/findConsultaCloud', async (req, res) => {
+  try {
+    const { pacienteID, medico } = req.query;
+
+    if (!pacienteID || !medico) {
+      return res.status(400).json({ message: 'pacienteID and medico are required' });
+    }
+
+    const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
+    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico });
+
+    if (consulta) {
+      res.status(200).json({ consultaId: consulta._id });
+      console.log("Cloud ID: ", consulta._id)
+    } else {
+      res.status(404).json({ message: 'Consulta not found.' });
+    }
+  } catch (error) {
+    console.error('Error finding consulta:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+
+// PUT: Update a Consulta document
+router.put('/update', async (req, res) => {
+  try {
+    const { consultaId, consultaIdCloud, pacienteId } = req.body;
+    const { vitals, comments, consultaData, selectedExams, acceptedDiseases } = req.body.data;
+    const state = selectedExams.length > 0 ? 'pending' : 'closed';
+
+    
+    const updateData = {
+      vitals,
+      comments,
+      consultaData,
+      selectedExams,
+      acceptedDiseases,
+      state,
+    };
+
+    const online = await isConnectedToInternet();
+
+    if (online) {
+      console.log('Internet connection available for update.');
+
+      const ConsultaAtlas = req.atlasDb.model('Consulta', ConsultaSchema);
+      const ConsultaLocal = req.localDb.model('Consulta', ConsultaSchema);
+
+      // Update in both Atlas and local DB
+      const resultAtlas = await ConsultaAtlas.updateOne({ _id: consultaIdCloud }, { $set: updateData });
+      const resultLocal = await ConsultaLocal.updateOne({ _id: consultaId }, { $set: updateData });
+
+      if (resultAtlas.modifiedCount > 0 || resultLocal.modifiedCount > 0) {
+        await removeFromWaitingList(req.localDb, pacienteId); // Remove from waiting list
+        return res.status(200).json({ message: 'Consulta updated in both databases.' });
+      } else {
+        return res.status(404).json({ message: 'Consulta not found.' });
+      }
+    } else {
+      console.log('No internet connection. Updating locally.');
+
+      const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+      // Update only locally and store for later sync
+      const resultLocal = await Consulta.updateOne({ _id: consultaId }, { $set: updateData });
+
+      if (resultLocal.modifiedCount > 0) {
+        await removeFromWaitingList(req.localDb, pacienteId); // Remove from waiting list
+        unsyncedConsultas.push({ _id: consultaId, ...updateData }); // Store for sync
+        return res.status(200).json({ message: 'Consulta updated locally and stored for sync.' });
+      } else {
+        return res.status(404).json({ message: 'Consulta not found.' });
+      }
+    }
+  } catch (error) {
+    console.error('Error updating consulta:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+
+// Helper function to remove a patient from the waiting list
+async function removeFromWaitingList(localDb, pacienteId) {
+  const WaitingList = localDb.model('WaitingList', WaitingListSchema);
+  const deleteResult = await WaitingList.deleteOne({ pacienteId });
+
+  if (deleteResult.deletedCount > 0) {
+    console.log(`Entry with pacienteId ${pacienteId} removed from waiting list.`);
+  } else {
+    console.log(`No entry found in waiting list for pacienteId ${pacienteId}.`);
+  }
+}
 
 
 module.exports = router;

@@ -8,6 +8,14 @@ const dns = require('dns');
 // Store database connections globally
 let atlasDb, localDb;
 
+
+// Route to initialize database connections
+router.use((req, res, next) => {
+  atlasDb = req.atlasDb;
+  localDb = req.localDb;
+  next();
+});
+
 // Utility function to check internet connection via DNS lookup
 function isConnectedToInternet() {
   return new Promise((resolve) => {
@@ -56,13 +64,21 @@ router.post('/', async (req, res) => {
     if (online) {
       console.log('There is internet connection');
 
+      // Save to Atlas DB
       const PacienteAtlas = req.atlasDb.model('Paciente', PacienteSchema);
-      const paciente = new PacienteAtlas(pacienteData);
+      const pacienteAtlas = new PacienteAtlas(pacienteData);
+      const savedPaciente = await pacienteAtlas.save();
+      console.log('Saved to Atlas:', savedPaciente);
 
-      await paciente.save(); // Save to atlasDb
-      await req.localDb.model('Paciente', PacienteSchema).create(pacienteData); // Save to localDb
+      // Save to Local DB
+      const PacienteLocal = req.localDb.model('Paciente', PacienteSchema);
+      const pacienteLocal = new PacienteLocal(pacienteData);
+      const savedPacienteLocal = await pacienteLocal.save(); // Save and confirm
 
-      return res.status(201).json(paciente);
+      console.log('Saved to Local DB:', savedPacienteLocal);
+
+      // Return the saved Atlas document
+      return res.status(201).json(savedPaciente);
     } else {
       console.log('There is NO internet connection');
 
@@ -79,14 +95,6 @@ router.post('/', async (req, res) => {
     res.status(500).send('Erro ao registrar paciente');
   }
 });
-
-// Route to initialize database connections
-router.use((req, res, next) => {
-  atlasDb = req.atlasDb;
-  localDb = req.localDb;
-  next();
-});
-
 
 router.get('/getPaciente/:pacienteId', async (req, res) => {
   const { pacienteId } = req.params;
