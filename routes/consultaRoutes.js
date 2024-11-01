@@ -116,11 +116,10 @@ router.get('/findConsulta', async (req, res) => {
     }
 
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
-    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico });
+    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico , state: 'open' });
 
     if (consulta) {
       res.status(200).json({ consultaId: consulta._id });
-      console.log("Local ID: ", consulta._id)
     } else {
       res.status(404).json({ message: 'Consulta not found.' });
     }
@@ -141,11 +140,10 @@ router.get('/findConsultaCloud', async (req, res) => {
     }
 
     const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
-    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico });
+    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico, state: 'open' });
 
     if (consulta) {
       res.status(200).json({ consultaId: consulta._id });
-      console.log("Cloud ID: ", consulta._id)
     } else {
       res.status(404).json({ message: 'Consulta not found.' });
     }
@@ -154,6 +152,7 @@ router.get('/findConsultaCloud', async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
+
 
 
 // PUT: Update a Consulta document
