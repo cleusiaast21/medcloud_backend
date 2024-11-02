@@ -116,7 +116,7 @@ router.get('/findConsulta', async (req, res) => {
     }
 
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
-    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico , state: 'open' });
+    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico, state: 'open' });
 
     if (consulta) {
       res.status(200).json({ consultaId: consulta._id });
@@ -162,7 +162,7 @@ router.put('/update', async (req, res) => {
     const { vitals, comments, consultaData, selectedExams, acceptedDiseases } = req.body.data;
     const state = selectedExams.length > 0 ? 'pending' : 'closed';
 
-    
+
     const updateData = {
       vitals,
       comments,
@@ -224,6 +224,24 @@ async function removeFromWaitingList(localDb, pacienteId) {
     console.log(`No entry found in waiting list for pacienteId ${pacienteId}.`);
   }
 }
+
+
+router.get('/:pacienteId', async (req, res) => {
+  try {
+      const { pacienteId } = req.params;
+      const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+      const consultas = await Consulta.find({ pacienteId, state: 'closed' });
+
+      if (!consultas) {
+          console.log("No consultations found for the provided pacienteId");
+      }
+      res.json(consultas);
+  } catch (error) {
+      console.error('Error fetching consultations:', error);
+      res.status(500).json({ error: 'Error fetching consultations', details: error.message });
+  }
+});
 
 
 module.exports = router;
