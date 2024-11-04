@@ -50,8 +50,7 @@ def predict():
 
     # Initialize a DataFrame with all feature names, set to 0
     input_data = pd.DataFrame(0, index=[0], columns=feature_names)
-
-    # Log all feature names to ensure they are correctly set
+    # Log alla feature names to ensure they are correctly set
     print(f"Feature names in input DataFrame: {input_data.columns.tolist()}")
 
     # Set features to 1 if they are present
