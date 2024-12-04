@@ -5,7 +5,6 @@ const WaitingListSchema = require('../models/WaitingList').schema;
 const mongoose = require('mongoose');
 
 
-
 // Route to retrieve waiting list filtered by medicoId
 router.get('/retrieveSpecific', async (req, res) => {
   const { medicoId } = req.query;

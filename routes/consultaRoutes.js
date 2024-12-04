@@ -154,6 +154,27 @@ router.get('/findConsultaCloud', async (req, res) => {
 });
 
 
+// GET: Find all consultas with state = 'pending'
+router.get('/findPendingConsultas', async (req, res) => {
+  try {
+    const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
+
+    // Query to find all consultas with state 'pending'
+    const consultas = await Consulta.find({ state: 'pending' });
+
+    if (consultas.length > 0) {
+      res.status(200).json({ consultas });
+    } else {
+      res.status(404).json({ message: 'No pending consultas found.' });
+    }
+  } catch (error) {
+    console.error('Error finding consultas:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+
+
 
 // PUT: Update a Consulta document
 router.put('/update', async (req, res) => {
@@ -224,7 +245,6 @@ async function removeFromWaitingList(localDb, pacienteId) {
     console.log(`No entry found in waiting list for pacienteId ${pacienteId}.`);
   }
 }
-
 
 router.get('/:pacienteId', async (req, res) => {
   try {

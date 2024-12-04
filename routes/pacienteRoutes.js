@@ -8,7 +8,6 @@ const dns = require('dns');
 // Store database connections globally
 let atlasDb, localDb;
 
-
 // Route to initialize database connections
 router.use((req, res, next) => {
   atlasDb = req.atlasDb;
@@ -32,10 +31,8 @@ function isConnectedToInternet() {
   });
 }
 
-// In-memory storage for unsynced patients
 const unsyncedPatients = [];
 
-// Sync unsynced patients when internet is available
 async function syncUnsyncedPatients() {
   if (!(await isConnectedToInternet())) return;
 

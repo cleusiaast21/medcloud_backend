@@ -5,19 +5,19 @@ import os
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 
-# Load your dataset
+# Carregar o dataset
 df = pd.read_csv('./dataset.csv')
 
-# Separate symptom and disease columns
+# Separar as colunas de sintomas e doenças
 symptom_columns = [col for col in df.columns if not col.startswith('D_')]
 disease_columns = [col for col in df.columns if col.startswith('D_')]
 
-# Create and save a model for each disease
+# Criar e salvar um modelo para cada doença
 for disease in disease_columns:
-    X = df[symptom_columns]  # symptoms as features
-    y = df[disease]          # target is the specific disease
+    X = df[symptom_columns]  # sintomas como atributos
+    y = df[disease]          # target é a doença específica
     
-    # Split the data into training and testing sets
+    # Dividir o dataset em conjunto de treino e conjunto de teste
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     # Normalizar os dados
@@ -25,11 +25,11 @@ for disease in disease_columns:
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
-    # Train the model using RandomForestClassifier
+    # Treinar o modelo usando o KNN, com 10 vizinhos
     model = KNeighborsClassifier(n_neighbors=10)
     model.fit(X_train, y_train)
     
-    # Calculate accuracy on the test set
+    # Calcular a acurácia no conjunto de teste
     accuracy = model.score(X_test, y_test)
     print(f'Accuracy for {disease}: {accuracy:.2f}')
     
@@ -37,11 +37,11 @@ for disease in disease_columns:
     filename = f'model_{disease}.pkl'
     file_path = os.path.join(directory, filename)
 
-    # Create the directory if it doesn't exist
+    # Criar o directório se não existir
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    # Save the model to the specified path
+    # Salvar o modelo para o directório especificado
     with open(file_path, 'wb') as file:
         pickle.dump(model, file)
         

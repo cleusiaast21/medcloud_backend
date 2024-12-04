@@ -4,9 +4,9 @@ import joblib
 import pandas as pd
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)  # Habilitar o CORS para todas as rotas
 
-# Load your trained models
+# Carregar os modelos treinados
 models = {
     'D_AIDS': joblib.load('./modelsPython/model_D_AIDS.pkl'),
     'D_Alergia': joblib.load('./modelsPython/model_D_Alergia.pkl'),
@@ -45,25 +45,27 @@ feature_names = [
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    
+    #Sintomas recebidos do frontend
     symptoms = request.json.get('symptoms', [])
     print(f"Received symptoms: {symptoms}")
 
-    # Initialize a DataFrame with all feature names, set to 0
+    # Initializar um DataFrame com todos os atributos em 0
     input_data = pd.DataFrame(0, index=[0], columns=feature_names)
-    # Log alla feature names to ensure they are correctly set
+    # Verificação dos nomes dos atributos
     print(f"Feature names in input DataFrame: {input_data.columns.tolist()}")
 
-    # Set features to 1 if they are present
+    # Mudar o valor para 1 se o sintoma estiver presente
     for symptom in symptoms:
         if symptom in input_data.columns:
             input_data[symptom] = 1
         else:
             print(f"Warning: Symptom '{symptom}' not found in feature names.")
 
-    # Log the DataFrame after setting symptom values
+    # Verificação do dataframe depois de colocar os valores
     print(f"Input data for prediction:\n{input_data}")
 
-    # Make predictions
+    # Realização da predição
     predictions = {}
     for disease, model in models.items():
         try:

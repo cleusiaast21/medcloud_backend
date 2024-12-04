@@ -4,6 +4,7 @@ const consultaSchema = new mongoose.Schema({
     specialty: { type: String, required: true },
     medico: { type: String, required: true },
     pacienteId: { type: String, required: true },
+    pacienteNome: { type: String},
     state: { type: String },
     selectedSymptoms: { type: Map, of: Number },
     acceptedDiseases: { type: [String] },

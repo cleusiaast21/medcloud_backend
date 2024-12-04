@@ -10,13 +10,13 @@ router.post('/register', async (req, res) => {
   try {
     const employeeCollection = req.localDb.model('Employee', Employee.schema); // Use localDb connection
 
-    // Verifique se o funcionário já existe
+    // Verifica se o funcionário já existe
     let employee = await employeeCollection.findOne({ funcionarioId });
     if (employee) {
       return res.status(400).json({ message: 'Employee already exists' });
     }
 
-    // Crie um novo funcionário
+    // Cria um novo funcionário
     employee = new employeeCollection({
       funcionarioId,
       password
@@ -69,8 +69,8 @@ router.post('/login', async (req, res) => {
     const payload = {
       employee: {
         funcionarioId: employee.funcionarioId,
-        employeeType: employee.employeeType, // Ensure this is included
-        nomeCompleto: employee.nomeCompleto, // Include nomeCompleto
+        employeeType: employee.employeeType, 
+        nomeCompleto: employee.nomeCompleto, 
       }
     };
 
@@ -83,10 +83,6 @@ router.post('/login', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
-
-
-
-
 
 
 module.exports = router;
