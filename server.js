@@ -6,9 +6,14 @@ const pacienteRoutes = require('./routes/pacienteRoutes');
 const consultaRoutes = require('./routes/consultaRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const waitingListRoutes = require('./routes/waitingListRoutes');
+const bodyParser = require('body-parser');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Configure body-parser to handle larger payloads
+app.use(bodyParser.json({ limit: '50mb' })); // Increase limit to 50MB or as required
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 
 // MongoDB local connection

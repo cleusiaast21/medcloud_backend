@@ -66,7 +66,6 @@ router.get('/retrieve', async (req, res) => {
 });
 
 
-
 router.post('/', async (req, res) => {
   try {
     const WaitingList = req.localDb.model('WaitingList', WaitingListSchema);

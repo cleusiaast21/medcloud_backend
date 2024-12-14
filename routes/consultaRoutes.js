@@ -174,6 +174,24 @@ router.get('/findPendingConsultas', async (req, res) => {
 });
 
 
+// GET: Find all consultas where results is not empty
+router.get('/findExamResults', async (req, res) => {
+  try {
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+    // Query to find all consultas where results is not empty
+    const consultas = await Consulta.find({  state: 'results' });
+
+    if (consultas.length > 0) {
+      res.status(200).json({ consultas });
+    } else {
+      res.status(404).json({ message: 'No consultas with results found.' });
+    }
+  } catch (error) {
+    console.error('Error finding consultas:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
 
 
 // PUT: Update a Consulta document
@@ -248,20 +266,101 @@ async function removeFromWaitingList(localDb, pacienteId) {
 
 router.get('/:pacienteId', async (req, res) => {
   try {
-      const { pacienteId } = req.params;
-      const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const { pacienteId } = req.params;
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
-      const consultas = await Consulta.find({ pacienteId, state: 'closed' });
+    const consultas = await Consulta.find({ pacienteId, state: 'closed' });
 
-      if (!consultas) {
-          console.log("No consultations found for the provided pacienteId");
-      }
-      res.json(consultas);
+    if (!consultas) {
+      console.log("No consultations found for the provided pacienteId");
+    }
+    res.json(consultas);
   } catch (error) {
-      console.error('Error fetching consultations:', error);
-      res.status(500).json({ error: 'Error fetching consultations', details: error.message });
+    console.error('Error fetching consultations:', error);
+    res.status(500).json({ error: 'Error fetching consultations', details: error.message });
   }
 });
+
+// PUT: Adicionar resultados da consulta e atualizar o estado para "open"
+router.put('/results/:id', async (req, res) => {
+
+  const { results } = req.body; 
+  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+  console.log("Os resultados recebidos são: ", results);
+
+  try {
+    // Find the consultation by ID
+    const consulta = await Consulta.findById(req.params.id);
+    if (!consulta) return res.status(404).json({ message: "Consulta not found" });
+
+    // If no results field exists, initialize it as an array
+    if (!consulta.results) {
+      consulta.results = [];
+    }
+
+    // Add new results to the existing results array
+    results.forEach((result) => {
+      // Ensure each result has necessary properties
+      if (result.examName && result.type && result.value) {
+        consulta.results.push(result);
+      }
+    });
+
+    // Change the consulta state to "results"
+    consulta.set('state', 'results');  
+
+    await consulta.save();
+
+    res.status(200).json({ message: "Results added and state updated to 'open'", consulta });
+  } catch (error) {
+    console.error("Error updating results:", error);
+    res.status(500).json({ message: "Error updating results", error });
+  }
+});
+
+// PUT: Update Diagnóstico (acceptedDiseases) for a Consultation
+router.put('/addDiagnostic/:id', async (req, res) => {
+  const { acceptedDiseases } = req.body; // Expecting an array of diagnoses (strings)
+  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+  try {
+      // Find the consultation by ID
+      const consulta = await Consulta.findById(req.params.id);
+      if (!consulta) {
+          return res.status(404).json({ message: "Consulta not found" });
+      }
+
+      // Update the acceptedDiseases field
+      consulta.acceptedDiseases = acceptedDiseases;
+      // Change the consulta state to "closed"
+    consulta.set('state', 'closed'); 
+
+      // Save the updated consultation document
+      await consulta.save();
+
+      res.status(200).json({ 
+          message: "Diagnóstico atualizado com sucesso",
+          consulta 
+      });
+  } catch (error) {
+      console.error("Error updating Diagnóstico:", error);
+      res.status(500).json({ 
+          message: "Erro ao atualizar Diagnóstico", 
+          error 
+      });
+  }
+});
+
+router.get('/imagem/:id', async (req, res) => {
+  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+  const consulta = await Consulta.findById(req.params.id);
+
+  if (!consulta) return res.status(404).json({ message: "Consulta not found" });
+
+  res.status(200).json({ image: consulta.imagem }); // Supondo que o campo seja "imagem"
+});
+
 
 
 module.exports = router;

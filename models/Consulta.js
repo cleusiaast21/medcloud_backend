@@ -12,7 +12,7 @@ const consultaSchema = new mongoose.Schema({
         subjectiveText: { type: String },
         objectivoText: { type: String },
         notasText: { type: String },
-        selectedSymptoms: { type: [String] }
+        selectedSymptoms: { type: [String] },
     },
     comments: {
         dst: { type: String },
@@ -23,7 +23,8 @@ const consultaSchema = new mongoose.Schema({
         medicacao: { type: String },
         antecedentes: { type: String },
     },
-    selectedExams: { type: [String] },
+    selectedExams: { type: Array },
+    results: {type: Array}
 }, { timestamps: true });
 
 module.exports = mongoose.model('Consulta', consultaSchema);
