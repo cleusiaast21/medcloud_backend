@@ -180,7 +180,7 @@ router.get('/findExamResults', async (req, res) => {
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
     // Query to find all consultas where results is not empty
-    const consultas = await Consulta.find({  state: 'results' });
+    const consultas = await Consulta.find({ state: 'results' });
 
     if (consultas.length > 0) {
       res.status(200).json({ consultas });
@@ -284,7 +284,7 @@ router.get('/:pacienteId', async (req, res) => {
 // PUT: Adicionar resultados da consulta e atualizar o estado para "open"
 router.put('/results/:id', async (req, res) => {
 
-  const { results } = req.body; 
+  const { results } = req.body;
   const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
   console.log("Os resultados recebidos são: ", results);
@@ -308,7 +308,7 @@ router.put('/results/:id', async (req, res) => {
     });
 
     // Change the consulta state to "results"
-    consulta.set('state', 'results');  
+    consulta.set('state', 'results');
 
     await consulta.save();
 
@@ -325,30 +325,30 @@ router.put('/addDiagnostic/:id', async (req, res) => {
   const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
   try {
-      // Find the consultation by ID
-      const consulta = await Consulta.findById(req.params.id);
-      if (!consulta) {
-          return res.status(404).json({ message: "Consulta not found" });
-      }
+    // Find the consultation by ID
+    const consulta = await Consulta.findById(req.params.id);
+    if (!consulta) {
+      return res.status(404).json({ message: "Consulta not found" });
+    }
 
-      // Update the acceptedDiseases field
-      consulta.acceptedDiseases = acceptedDiseases;
-      // Change the consulta state to "closed"
-    consulta.set('state', 'closed'); 
+    // Update the acceptedDiseases field
+    consulta.acceptedDiseases = acceptedDiseases;
+    // Change the consulta state to "closed"
+    consulta.set('state', 'closed');
 
-      // Save the updated consultation document
-      await consulta.save();
+    // Save the updated consultation document
+    await consulta.save();
 
-      res.status(200).json({ 
-          message: "Diagnóstico atualizado com sucesso",
-          consulta 
-      });
+    res.status(200).json({
+      message: "Diagnóstico atualizado com sucesso",
+      consulta
+    });
   } catch (error) {
-      console.error("Error updating Diagnóstico:", error);
-      res.status(500).json({ 
-          message: "Erro ao atualizar Diagnóstico", 
-          error 
-      });
+    console.error("Error updating Diagnóstico:", error);
+    res.status(500).json({
+      message: "Erro ao atualizar Diagnóstico",
+      error
+    });
   }
 });
 
@@ -359,6 +359,66 @@ router.get('/imagem/:id', async (req, res) => {
   if (!consulta) return res.status(404).json({ message: "Consulta not found" });
 
   res.status(200).json({ image: consulta.imagem }); // Supondo que o campo seja "imagem"
+});
+    
+
+// GET: Get Disease Statistics
+router.get('/diseaseStats/:medico', async (req, res) => {
+  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+  try {
+      const { medico } = req.params;
+      console.log("Received Doctor Name (Medico):", medico);
+
+      const stats = await Consulta.aggregate([
+        { $match: { medico } }, // Match the 'medico' field
+        { $unwind: '$acceptedDiseases' }, // Deconstruct the array into individual documents
+        { $group: { _id: '$acceptedDiseases', count: { $sum: 1 } } }, // Group by disease name
+        { $project: { disease: '$_id', count: 1, _id: 0 } }, // Rename _id to 'disease'
+    ]);
+
+      console.log("Aggregation Result:", stats);
+
+      res.json(stats);
+  } catch (error) {
+      console.error("Error in /diseaseStats route:", error);
+      res.status(500).send("Internal Server Error");
+  }
+});
+
+
+// GET: Get Symptom Statistics
+router.get('/symptomStats/:medico', async (req, res) => {
+  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+  try {
+    const { medico } = req.params;
+
+    const stats = await Consulta.aggregate([
+      { $match: { medico } }, // Match the 'medico' field
+      { $unwind: '$consultaData.selectedSymptoms' }, // Deconstruct the 'selectedSymptoms' array
+      { 
+        $group: { 
+          _id: '$consultaData.selectedSymptoms', // Group by symptom name
+          count: { $sum: 1 } // Count the occurrences of each symptom
+        } 
+      },
+      { 
+        $project: { 
+          symptom: '$_id', // Rename '_id' to 'symptom'
+          count: 1, 
+          _id: 0 
+        } 
+      },
+    ]);
+
+    console.log("Aggregation Result:", stats);
+
+    res.json(stats);
+  } catch (error) {
+    console.error("Error in /symptomStats route:", error);
+    res.status(500).send("Internal Server Error");
+  }
 });
 
 
