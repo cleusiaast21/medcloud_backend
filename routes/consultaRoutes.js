@@ -11,7 +11,6 @@ const unsyncedConsultas = [];
 // Store database connections globally
 let atlasDb, localDb;
 
-
 // Route to initialize database connections
 router.use((req, res, next) => {
   atlasDb = req.atlasDb;
@@ -358,7 +357,7 @@ router.get('/imagem/:id', async (req, res) => {
 
   if (!consulta) return res.status(404).json({ message: "Consulta not found" });
 
-  res.status(200).json({ image: consulta.imagem }); // Supondo que o campo seja "imagem"
+  res.status(200).json({ image: consulta.imagem }); 
 });
     
 
@@ -418,6 +417,34 @@ router.get('/symptomStats/:medico', async (req, res) => {
   } catch (error) {
     console.error("Error in /symptomStats route:", error);
     res.status(500).send("Internal Server Error");
+  }
+});
+
+
+// Rota para buscar consultas de um paciente
+router.get('/consultasPaciente/:id', async (req, res) => {
+  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+  alert("HI")
+
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: 'O ID do paciente é obrigatório.' });
+    }
+
+    // Fetch consultas where pacienteId matches the provided ID
+    const consultas = await Consulta.find({ pacienteId: id });
+
+    if (!consultas.length) {
+      return res.status(404).json({ message: 'Nenhuma consulta encontrada para o paciente informado.' });
+    }
+
+    res.status(200).json(consultas);
+  } catch (error) {
+    console.error('Erro ao buscar consultas:', error);
+    res.status(500).json({ error: 'Erro ao buscar consultas. Tente novamente mais tarde.' });
   }
 });
 
