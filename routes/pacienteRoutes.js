@@ -8,14 +8,14 @@ const dns = require('dns');
 // Store database connections globally
 let atlasDb, localDb;
 
-// Route to initialize database connections
+// Rota para inicializar as conexões a base de dados
 router.use((req, res, next) => {
   atlasDb = req.atlasDb;
   localDb = req.localDb;
   next();
 });
 
-// Utility function to check internet connection via DNS lookup
+// Função auxiliar para verificar a conexão a internet 
 function isConnectedToInternet() {
   return new Promise((resolve) => {
     console.log('Checking internet connection...');

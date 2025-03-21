@@ -178,19 +178,25 @@ router.get('/findExamResults', async (req, res) => {
   try {
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
-    // Query to find all consultas where results is not empty
-    const consultas = await Consulta.find({ state: 'results' });
+    const { medicoNomeCompleto } = req.query;
+
+    // Query to find consultas where state is 'results' and medico matches the provided name
+    const consultas = await Consulta.find({
+      state: 'results',
+      medico: medicoNomeCompleto
+    });
 
     if (consultas.length > 0) {
       res.status(200).json({ consultas });
     } else {
-      res.status(404).json({ message: 'No consultas with results found.' });
+      res.status(404).json({ message: 'No consultas with results found for the specified medico.' });
     }
   } catch (error) {
     console.error('Error finding consultas:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
+
 
 
 // PUT: Update a Consulta document
@@ -357,31 +363,31 @@ router.get('/imagem/:id', async (req, res) => {
 
   if (!consulta) return res.status(404).json({ message: "Consulta not found" });
 
-  res.status(200).json({ image: consulta.imagem }); 
+  res.status(200).json({ image: consulta.imagem });
 });
-    
+
 
 // GET: Get Disease Statistics
 router.get('/diseaseStats/:medico', async (req, res) => {
   const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
   try {
-      const { medico } = req.params;
-      console.log("Received Doctor Name (Medico):", medico);
+    const { medico } = req.params;
+    console.log("Received Doctor Name (Medico):", medico);
 
-      const stats = await Consulta.aggregate([
-        { $match: { medico } }, // Match the 'medico' field
-        { $unwind: '$acceptedDiseases' }, // Deconstruct the array into individual documents
-        { $group: { _id: '$acceptedDiseases', count: { $sum: 1 } } }, // Group by disease name
-        { $project: { disease: '$_id', count: 1, _id: 0 } }, // Rename _id to 'disease'
+    const stats = await Consulta.aggregate([
+      { $match: { medico } }, // Match the 'medico' field
+      { $unwind: '$acceptedDiseases' }, // Deconstruct the array into individual documents
+      { $group: { _id: '$acceptedDiseases', count: { $sum: 1 } } }, // Group by disease name
+      { $project: { disease: '$_id', count: 1, _id: 0 } }, // Rename _id to 'disease'
     ]);
 
-      console.log("Aggregation Result:", stats);
+    console.log("Aggregation Result:", stats);
 
-      res.json(stats);
+    res.json(stats);
   } catch (error) {
-      console.error("Error in /diseaseStats route:", error);
-      res.status(500).send("Internal Server Error");
+    console.error("Error in /diseaseStats route:", error);
+    res.status(500).send("Internal Server Error");
   }
 });
 
@@ -396,18 +402,18 @@ router.get('/symptomStats/:medico', async (req, res) => {
     const stats = await Consulta.aggregate([
       { $match: { medico } }, // Match the 'medico' field
       { $unwind: '$consultaData.selectedSymptoms' }, // Deconstruct the 'selectedSymptoms' array
-      { 
-        $group: { 
+      {
+        $group: {
           _id: '$consultaData.selectedSymptoms', // Group by symptom name
           count: { $sum: 1 } // Count the occurrences of each symptom
-        } 
+        }
       },
-      { 
-        $project: { 
+      {
+        $project: {
           symptom: '$_id', // Rename '_id' to 'symptom'
-          count: 1, 
-          _id: 0 
-        } 
+          count: 1,
+          _id: 0
+        }
       },
     ]);
 
@@ -425,25 +431,24 @@ router.get('/symptomStats/:medico', async (req, res) => {
 router.get('/consultasPaciente/:id', async (req, res) => {
   const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
-  alert("HI")
-
   try {
     const { id } = req.params;
+    console.log("O id é: ,", id)
 
     if (!id) {
       return res.status(400).json({ error: 'O ID do paciente é obrigatório.' });
-    }
 
-    // Fetch consultas where pacienteId matches the provided ID
+    }
+    // Fetch consultas where pacienteId matches the provided ID    
     const consultas = await Consulta.find({ pacienteId: id });
 
     if (!consultas.length) {
       return res.status(404).json({ message: 'Nenhuma consulta encontrada para o paciente informado.' });
     }
-
     res.status(200).json(consultas);
   } catch (error) {
     console.error('Erro ao buscar consultas:', error);
+
     res.status(500).json({ error: 'Erro ao buscar consultas. Tente novamente mais tarde.' });
   }
 });
