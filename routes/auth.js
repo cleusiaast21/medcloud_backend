@@ -85,4 +85,45 @@ router.post('/login', async (req, res) => {
 });
 
 
+
+router.post('/loginP', async (req, res) => {
+  const { funcionarioId, password } = req.body;
+
+  if (!funcionarioId || !password) {
+    return res.status(400).json({ message: 'Please provide funcionarioId and password' });
+  }
+
+  try {
+    const employeeCollection = req.localDb.model('Employee', Employee.schema);
+    let employee = await employeeCollection.findOne({ funcionarioId });
+
+    if (!employee) {
+      return res.status(400).json({ message: 'Employee not found' });
+    }
+
+    // Directly compare passwords (NO ENCRYPTION)
+    if (password !== employee.password) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const payload = {
+      employee: {
+        funcionarioId: employee.funcionarioId,
+        employeeType: employee.employeeType, 
+        nomeCompleto: employee.nomeCompleto, 
+      }
+    };
+
+    jwt.sign(payload, 'secret', { expiresIn: 3600 }, (err, token) => {
+      if (err) throw err;
+      res.status(200).json({ token, employee: payload.employee }); // Include employee data in response
+    });
+  } catch (err) {
+    console.error('Server error:', err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+
+
 module.exports = router;
