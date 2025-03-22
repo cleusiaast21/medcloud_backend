@@ -135,10 +135,31 @@ router.get('/findConsultaEnfermeiro', async (req, res) => {
   }
 });
 
-// GET: Find consulta by pacienteID and medico
-router.get('/findConsulta', async (req, res) => {
+router.get('/findConsultaEnfermeiroCloud', async (req, res) => {
   try {
     const { pacienteId, medico } = req.query;
+
+    const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
+    const consulta = await Consulta.findOne({ pacienteId: pacienteId, medico });
+
+    if (consulta) {
+      res.status(200).json({ consultaId: consulta._id });
+    } else {
+      res.status(404).json({ message: 'Consulta not found.' });
+    }
+  } catch (error) {
+    console.error('Error finding consulta:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+// GET: Find consulta by pacienteID and medico
+router.get('/findConsulta', async (req, res) => {
+  
+  try {
+    const { pacienteId, medico } = req.query;
+
+    console.log(pacienteId, medico)
 
     if (!pacienteId || !medico) {
       return res.status(400).json({ message: 'pacienteID and medico are required' });
@@ -162,14 +183,17 @@ router.get('/findConsulta', async (req, res) => {
 // GET: Find consulta by pacienteID and medico
 router.get('/findConsultaCloud', async (req, res) => {
   try {
-    const { pacienteID, medico } = req.query;
+    const { pacienteId, medico } = req.query;
 
-    if (!pacienteID || !medico) {
+
+    if (!pacienteId || !medico) {
       return res.status(400).json({ message: 'pacienteID and medico are required' });
     }
 
+    console.log("CLOUD: " + pacienteId, medico)
+
     const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
-    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico, state: 'open' });
+    const consulta = await Consulta.findOne({ pacienteId: pacienteId, medico, state: 'open' });
 
     if (consulta) {
       res.status(200).json({ consultaId: consulta._id });
@@ -317,42 +341,58 @@ router.get('/:pacienteId', async (req, res) => {
 });
 
 // PUT: Adicionar resultados da consulta e atualizar o estado para "open"
-router.put('/results/:id', async (req, res) => {
+router.put('/results', async (req, res) => {
+  const { consultaId, consultaIdCloud, results } = req.body;
 
-  const { results } = req.body;
-  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+  if (!consultaId || !consultaIdCloud) {
+    return res.status(400).json({ message: "Both consultaId and consultaIdCloud are required." });
+  }
 
-  console.log("Os resultados recebidos são: ", results);
+  const ConsultaLocal = req.localDb.model('Consulta', ConsultaSchema);
+  const ConsultaCloud = req.atlasDb.model('Consulta', ConsultaSchema);
+
+  console.log("Recebendo resultados para as consultas:", { consultaId, consultaIdCloud, results });
 
   try {
-    // Find the consultation by ID
-    const consulta = await Consulta.findById(req.params.id);
-    if (!consulta) return res.status(404).json({ message: "Consulta not found" });
+    // Fetch both local and cloud consultas in parallel
+    const [consultaLocal, consultaCloud] = await Promise.all([
+      ConsultaLocal.findById(consultaId),
+      ConsultaCloud.findById(consultaIdCloud)
+    ]);
 
-    // If no results field exists, initialize it as an array
-    if (!consulta.results) {
-      consulta.results = [];
+    if (!consultaLocal || !consultaCloud) {
+      return res.status(404).json({ message: "Consulta not found in one or both databases." });
     }
 
-    // Add new results to the existing results array
+    // Ensure results arrays exist
+    consultaLocal.results = consultaLocal.results || [];
+    consultaCloud.results = consultaCloud.results || [];
+
+    // Append new results
     results.forEach((result) => {
-      // Ensure each result has necessary properties
       if (result.examName && result.type && result.value) {
-        consulta.results.push(result);
+        consultaLocal.results.push(result);
+        consultaCloud.results.push(result);
       }
     });
 
-    // Change the consulta state to "results"
-    consulta.set('state', 'results');
+    // Update the state to 'results'
+    consultaLocal.set('state', 'results');
+    consultaCloud.set('state', 'results');
 
-    await consulta.save();
+    // Save both in parallel
+    await Promise.all([
+      consultaLocal.save(),
+      consultaCloud.save()
+    ]);
 
-    res.status(200).json({ message: "Results added and state updated to 'open'", consulta });
+    res.status(200).json({ message: "Results added successfully to both databases!", consultaLocal, consultaCloud });
   } catch (error) {
-    console.error("Error updating results:", error);
-    res.status(500).json({ message: "Error updating results", error });
+    console.error("Erro ao atualizar resultados:", error);
+    res.status(500).json({ message: "Erro ao atualizar os resultados", error });
   }
 });
+
 
 // PUT: Update Diagnóstico (acceptedDiseases) for a Consultation
 router.put('/addDiagnostic/:id', async (req, res) => {
@@ -483,10 +523,9 @@ router.get('/consultasPaciente/:id', async (req, res) => {
 });
 
 
-// PUT: Update a Consulta document
+// PUT: Update a Consulta document in both local and Atlas databases
 router.put('/updateEnfermeiro', async (req, res) => {
   try {
-
     const { consultaId, consultaIdCloud, pacienteId } = req.body;
     const { vitals, comments } = req.body.data;
 
@@ -496,15 +535,40 @@ router.put('/updateEnfermeiro', async (req, res) => {
       state: "open",
     };
 
-    const ConsultaLocal = req.localDb.model('Consulta', ConsultaSchema);
+    const online = await isConnectedToInternet();
 
-    const resultLocal = await ConsultaLocal.updateOne({ _id: consultaId }, { $set: updateData });
+    if (online) {
+      console.log('Internet connection available for update.');
 
-    if (resultLocal.modifiedCount > 0) {
-      return res.status(200).json({ message: 'Consulta updated locally.' });
+      const ConsultaAtlas = req.atlasDb.model('Consulta', ConsultaSchema);
+      const ConsultaLocal = req.localDb.model('Consulta', ConsultaSchema);
+
+      // Update in both Atlas and local DB
+      const resultAtlas = await ConsultaAtlas.updateOne({ _id: consultaIdCloud }, { $set: updateData });
+      const resultLocal = await ConsultaLocal.updateOne({ _id: consultaId }, { $set: updateData });
+
+      if (resultAtlas.modifiedCount > 0 || resultLocal.modifiedCount > 0) {
+        return res.status(200).json({ message: 'Consulta updated in both databases.' });
+      } else {
+        return res.status(404).json({ message: 'Consulta not found.' });
+      }
     } else {
-      return res.status(404).json({ message: 'Consulta not found.' });
+      console.log('No internet connection. Updating locally.');
+
+      const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+      // Update only locally and store for later sync
+      const resultLocal = await Consulta.updateOne({ _id: consultaId }, { $set: updateData });
+
+      if (resultLocal.modifiedCount > 0) {
+        await removeFromWaitingList(req.localDb, pacienteId); // Remove from waiting list
+        unsyncedConsultas.push({ _id: consultaId, ...updateData }); // Store for sync
+        return res.status(200).json({ message: 'Consulta updated locally and stored for sync.' });
+      } else {
+        return res.status(404).json({ message: 'Consulta not found.' });
+      }
     }
+
   } catch (error) {
     console.error('Error updating consulta:', error);
     res.status(500).json({ message: 'Internal server error.' });
@@ -512,9 +576,9 @@ router.put('/updateEnfermeiro', async (req, res) => {
 });
 
 
+
 // GET: Find Consulta Vitals and Comments
 router.get('/retrieveInformacoes/:pacienteId', async (req, res) => {
-  console.log("📢 REQUEST RECEIVED at /retrieveInformacoes");
 
   try {
     const { pacienteId } = req.params;
@@ -524,19 +588,13 @@ router.get('/retrieveInformacoes/:pacienteId', async (req, res) => {
     const consulta = await Consulta.findOne({ pacienteId, state: "open" });
 
     if (!consulta) {
-      console.log("❌ Consulta not found for pacienteId:", pacienteId);
       return res.status(404).json({ message: 'Consulta not found.' });
     }
 
-    console.log("✅ Consulta found:", consulta);
     res.status(200).json(consulta);
   } catch (error) {
-    console.error('🔥 Error retrieving consulta details:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
-
-
-
 
 module.exports = router;
