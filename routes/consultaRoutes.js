@@ -326,7 +326,7 @@ async function removeFromWaitingList(localDb, pacienteId) {
 router.get('/:pacienteId', async (req, res) => {
   try {
     const { pacienteId } = req.params;
-    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
 
     const consultas = await Consulta.find({ pacienteId, state: 'closed' });
 
@@ -507,7 +507,7 @@ router.get('/symptomStats/:medico', async (req, res) => {
 
 // Rota para buscar consultas de um paciente
 router.get('/consultasPaciente/:id', async (req, res) => {
-  const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+  const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
 
   try {
     const { id } = req.params;
@@ -516,6 +516,8 @@ router.get('/consultasPaciente/:id', async (req, res) => {
       return res.status(400).json({ error: 'O ID do paciente é obrigatório.' });
 
     }
+
+    console.log("HI")
     // Fetch consultas where pacienteId matches the provided ID    
     const consultas = await Consulta.find({ pacienteId: id });
 

@@ -120,7 +120,7 @@ router.get('/exists/:numeroIdentificacao', async (req, res) => {
 
   try {
 
-    const Paciente = req.localDb.model('Paciente', PacienteSchema);
+    const Paciente = req.atlasDb.model('Paciente', PacienteSchema);
 
     // Busca o paciente pelo número de identificação
     const paciente = await Paciente.findOne({ numeroIdentificacao });
