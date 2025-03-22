@@ -42,4 +42,18 @@ router.get('/doctors', async (req, res) => {
   }
 });
 
+// Route to get all employees
+router.get('/allEmployees', async (req, res) => {
+  try {
+    // Use the localDb connection from req to create the Employee model
+    const Employee = req.localDb.model('Employee', EmployeeSchema);
+
+    const employees = await Employee.find(); // Fetch all employees
+    res.json(employees);
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    res.status(500).send('Error fetching employees');
+  }
+});
+
 module.exports = router;

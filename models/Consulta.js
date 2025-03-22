@@ -4,15 +4,22 @@ const consultaSchema = new mongoose.Schema({
     specialty: { type: String, required: true },
     medico: { type: String, required: true },
     pacienteId: { type: String, required: true },
-    pacienteNome: { type: String},
+    pacienteNome: { type: String },
     state: { type: String },
     selectedSymptoms: { type: Map, of: Number },
     acceptedDiseases: { type: [String] },
-    consultaData:{
+    consultaData: {
         subjectiveText: { type: String },
         objectivoText: { type: String },
         notasText: { type: String },
         selectedSymptoms: { type: [String] },
+    },
+    vitals: {
+        bloodPressure: { type: String },
+        heartRate: { type: Number },
+        respiratoryRate: { type: String },
+        temperature: { type: Number },
+        weight: { type: Number },
     },
     comments: {
         dst: { type: String },
@@ -24,7 +31,7 @@ const consultaSchema = new mongoose.Schema({
         antecedentes: { type: String },
     },
     selectedExams: { type: Array },
-    results: {type: Array}
+    results: { type: Array }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Consulta', consultaSchema);

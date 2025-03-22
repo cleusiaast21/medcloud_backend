@@ -104,18 +104,48 @@ router.get('/pending', async (req, res) => {
   }
 });
 
+// GET: Triage consultations
+router.get('/triage', async (req, res) => {
+  try {
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const triageConsultations = await Consulta.find({ state: 'triage' });
+    res.json(triageConsultations);
+  } catch (error) {
+    console.error('Error fetching pending consultations:', error);
+    res.status(500).json({ error: 'Failed to fetch consultations' });
+  }
+});
+
+// GET: Find consulta by pacienteID and medico
+router.get('/findConsultaEnfermeiro', async (req, res) => {
+  try {
+    const { pacienteId, medico } = req.query;
+
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const consulta = await Consulta.findOne({ pacienteId: pacienteId, medico });
+
+    if (consulta) {
+      res.status(200).json({ consultaId: consulta._id });
+    } else {
+      res.status(404).json({ message: 'Consulta not found.' });
+    }
+  } catch (error) {
+    console.error('Error finding consulta:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
 
 // GET: Find consulta by pacienteID and medico
 router.get('/findConsulta', async (req, res) => {
   try {
-    const { pacienteID, medico } = req.query;
+    const { pacienteId, medico } = req.query;
 
-    if (!pacienteID || !medico) {
+    if (!pacienteId || !medico) {
       return res.status(400).json({ message: 'pacienteID and medico are required' });
     }
 
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
-    const consulta = await Consulta.findOne({ pacienteId: pacienteID, medico, state: 'open' });
+    const consulta = await Consulta.findOne({ pacienteId: pacienteId, medico, state: 'open' });
 
     if (consulta) {
       res.status(200).json({ consultaId: consulta._id });
@@ -173,6 +203,7 @@ router.get('/findPendingConsultas', async (req, res) => {
 });
 
 
+
 // GET: Find all consultas where results is not empty
 router.get('/findExamResults', async (req, res) => {
   try {
@@ -205,7 +236,6 @@ router.put('/update', async (req, res) => {
     const { consultaId, consultaIdCloud, pacienteId } = req.body;
     const { vitals, comments, consultaData, selectedExams, acceptedDiseases } = req.body.data;
     const state = selectedExams.length > 0 ? 'pending' : 'closed';
-
 
     const updateData = {
       vitals,
@@ -433,7 +463,6 @@ router.get('/consultasPaciente/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    console.log("O id é: ,", id)
 
     if (!id) {
       return res.status(400).json({ error: 'O ID do paciente é obrigatório.' });
@@ -452,6 +481,61 @@ router.get('/consultasPaciente/:id', async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar consultas. Tente novamente mais tarde.' });
   }
 });
+
+
+// PUT: Update a Consulta document
+router.put('/updateEnfermeiro', async (req, res) => {
+  try {
+
+    const { consultaId, consultaIdCloud, pacienteId } = req.body;
+    const { vitals, comments } = req.body.data;
+
+    const updateData = {
+      vitals,
+      comments,
+      state: "open",
+    };
+
+    const ConsultaLocal = req.localDb.model('Consulta', ConsultaSchema);
+
+    const resultLocal = await ConsultaLocal.updateOne({ _id: consultaId }, { $set: updateData });
+
+    if (resultLocal.modifiedCount > 0) {
+      return res.status(200).json({ message: 'Consulta updated locally.' });
+    } else {
+      return res.status(404).json({ message: 'Consulta not found.' });
+    }
+  } catch (error) {
+    console.error('Error updating consulta:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+
+// GET: Find Consulta Vitals and Comments
+router.get('/retrieveInformacoes/:pacienteId', async (req, res) => {
+  console.log("📢 REQUEST RECEIVED at /retrieveInformacoes");
+
+  try {
+    const { pacienteId } = req.params;
+    
+    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+
+    const consulta = await Consulta.findOne({ pacienteId, state: "open" });
+
+    if (!consulta) {
+      console.log("❌ Consulta not found for pacienteId:", pacienteId);
+      return res.status(404).json({ message: 'Consulta not found.' });
+    }
+
+    console.log("✅ Consulta found:", consulta);
+    res.status(200).json(consulta);
+  } catch (error) {
+    console.error('🔥 Error retrieving consulta details:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 
 
 
