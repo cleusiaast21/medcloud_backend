@@ -231,7 +231,7 @@ router.get('/findPendingConsultas', async (req, res) => {
 // GET: Find all consultas where results is not empty
 router.get('/findExamResults', async (req, res) => {
   try {
-    const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+    const Consulta = req.atlasDb.model('Consulta', ConsultaSchema);
 
     const { medicoNomeCompleto } = req.query;
 
@@ -396,27 +396,34 @@ router.put('/results', async (req, res) => {
 
 // PUT: Update Diagnóstico (acceptedDiseases) for a Consultation
 router.put('/addDiagnostic/:id', async (req, res) => {
-  const { acceptedDiseases } = req.body; // Expecting an array of diagnoses (strings)
+  const { pacienteId, medico, acceptedDiseases } = req.body; // Expecting additional fields
   const Consulta = req.localDb.model('Consulta', ConsultaSchema);
+  const ConsultaCloud = req.atlasDb.model('Consulta', ConsultaSchema);
 
   try {
-    // Find the consultation by ID
-    const consulta = await Consulta.findById(req.params.id);
-    if (!consulta) {
-      return res.status(404).json({ message: "Consulta not found" });
+    // Find the consultation by pacienteId and medico in both databases
+    const consultaLocal = await Consulta.findOne({ pacienteId, medico });
+    const consultaCloud = await ConsultaCloud.findOne({ pacienteId, medico });
+
+    if (!consultaLocal || !consultaCloud) {
+      return res.status(404).json({ message: "Consulta not found in one or both databases" });
     }
 
-    // Update the acceptedDiseases field
-    consulta.acceptedDiseases = acceptedDiseases;
-    // Change the consulta state to "closed"
-    consulta.set('state', 'closed');
+    // Update the acceptedDiseases field and set state to "closed"
+    consultaLocal.acceptedDiseases = acceptedDiseases;
+    consultaLocal.set('state', 'closed');
 
-    // Save the updated consultation document
-    await consulta.save();
+    consultaCloud.acceptedDiseases = acceptedDiseases;
+    consultaCloud.set('state', 'closed');
+
+    // Save the updated consultation documents in both databases
+    await consultaLocal.save();
+    await consultaCloud.save();
 
     res.status(200).json({
-      message: "Diagnóstico atualizado com sucesso",
-      consulta
+      message: "Diagnóstico atualizado com sucesso em ambas as bases de dados",
+      consultaLocal,
+      consultaCloud
     });
   } catch (error) {
     console.error("Error updating Diagnóstico:", error);
@@ -426,6 +433,7 @@ router.put('/addDiagnostic/:id', async (req, res) => {
     });
   }
 });
+
 
 router.get('/imagem/:id', async (req, res) => {
   const Consulta = req.localDb.model('Consulta', ConsultaSchema);
