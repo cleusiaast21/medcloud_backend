@@ -155,7 +155,7 @@ router.get('/findConsultaEnfermeiroCloud', async (req, res) => {
 
 // GET: Find consulta by pacienteID and medico
 router.get('/findConsulta', async (req, res) => {
-  
+
   try {
     const { pacienteId, medico } = req.query;
 
@@ -585,6 +585,40 @@ router.put('/updateEnfermeiro', async (req, res) => {
   }
 });
 
+//update Receita
+router.put('/updateReceita', async (req, res) => {
+  try {
+    const { consultaId, consultaIdCloud, receita } = req.body;
+
+    console.log('Received request:', req.body);
+
+    const updateData = {
+      receita
+    };
+
+    console.log("To update is: " + receita)
+    console.log('Internet connection available for update.');
+
+    const ConsultaAtlas = req.atlasDb.model('Consulta', ConsultaSchema);
+    const ConsultaLocal = req.localDb.model('Consulta', ConsultaSchema);
+
+    // Update in both Atlas and local DB
+    const resultAtlas = await ConsultaAtlas.updateOne({ _id: consultaIdCloud }, { $set: updateData });
+    const resultLocal = await ConsultaLocal.updateOne({ _id: consultaId }, { $set: updateData });
+
+    if (resultAtlas.modifiedCount > 0 || resultLocal.modifiedCount > 0) {
+      return res.status(200).json({ message: 'Consulta updated in both databases.' });
+    } else {
+      return res.status(404).json({ message: 'Consulta not found.' });
+    }
+
+
+  } catch (error) {
+    console.error('Error updating consulta:', error);
+    res.status(500).json({ message: 'Erro de servidor.' });
+  }
+});
+
 
 
 // GET: Find Consulta Vitals and Comments
@@ -592,7 +626,7 @@ router.get('/retrieveInformacoes/:pacienteId', async (req, res) => {
 
   try {
     const { pacienteId } = req.params;
-    
+
     const Consulta = req.localDb.model('Consulta', ConsultaSchema);
 
     const consulta = await Consulta.findOne({ pacienteId, state: "open" });
@@ -607,4 +641,19 @@ router.get('/retrieveInformacoes/:pacienteId', async (req, res) => {
   }
 });
 
+
+router.put("saveReceita/:id", async (req, res) => {
+  try {
+    const { receita } = req.body;
+    const consulta = await Consulta.findByIdAndUpdate(req.params.id, { receita }, { new: true });
+
+    if (!consulta) {
+      return res.status(404).json({ message: "Consulta não encontrada" });
+    }
+
+    res.json({ message: "Receita salva com sucesso", consulta });
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao atualizar consulta" });
+  }
+});
 module.exports = router;

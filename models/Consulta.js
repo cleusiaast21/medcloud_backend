@@ -31,7 +31,8 @@ const consultaSchema = new mongoose.Schema({
         antecedentes: { type: String },
     },
     selectedExams: { type: Array },
-    results: { type: Array }
+    results: { type: Array },
+    receita: { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Consulta', consultaSchema);
